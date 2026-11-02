@@ -1,0 +1,181 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Pay insights</h1>
+      <p>
+        Annual gross salaries. Within a country, figures are in local currency; across countries they are
+        converted to USD at reference rates.
+      </p>
+    </div>
+  </header>
+
+  <!-- Org-wide KPIs -->
+  @if (errorOf(summary()); as message) {
+    <div class="error-banner" role="alert"><mat-icon>error</mat-icon>{{ message }}</div>
+  }
+  <section class="kpis" aria-label="Organisation summary">
+    @let s = dataOf(summary());
+    <div class="kpi">
+      <span class="label">Headcount</span>
+      <span class="value" data-testid="kpi-headcount">{{ s ? s.headcount.toLocaleString() : '—' }}</span>
+      <span class="sub">{{ s ? s.countries + ' countries · ' + s.departments + ' departments' : '&nbsp;' }}</span>
+    </div>
+    <div class="kpi">
+      <span class="label">Annual payroll</span>
+      <span class="value">{{ s ? (s.totalPayrollUsd | money: 'USD') : '—' }}</span>
+      <span class="sub">USD equivalent</span>
+    </div>
+    <div class="kpi">
+      <span class="label">Median salary</span>
+      <span class="value">{{ s ? (s.salaryUsd.median | money: 'USD') : '—' }}</span>
+      <span class="sub">Mean {{ s ? (s.salaryUsd.mean | money: 'USD') : '—' }}</span>
+    </div>
+    <div class="kpi">
+      <span class="label">Middle 50% earn</span>
+      <span class="value range">
+        {{ s ? (s.salaryUsd.p25 | money: 'USD') + ' – ' + (s.salaryUsd.p75 | money: 'USD') : '—' }}
+      </span>
+      <span class="sub">25th – 75th percentile, USD</span>
+    </div>
+  </section>
+
+  <!-- By country -->
+  <section class="panel" aria-labelledby="by-country-title">
+    <header class="panel-header">
+      <h2 id="by-country-title">Pay by country</h2>
+    </header>
+    @if (countries().loading) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+    @if (errorOf(countries()); as message) {
+      <div class="error-banner" role="alert"><mat-icon>error</mat-icon>{{ message }}</div>
+    }
+    <div class="table-scroll">
+      <table mat-table [dataSource]="dataOf(countries()) ?? []" aria-labelledby="by-country-title">
+        <ng-container matColumnDef="country">
+          <th mat-header-cell *matHeaderCellDef>Country</th>
+          <td mat-cell *matCellDef="let c">
+            {{ c.countryName }} <span class="muted">{{ c.currency }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="headcount">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Headcount</th>
+          <td mat-cell *matCellDef="let c" class="numeric">{{ c.salaryLocal.count.toLocaleString() }}</td>
+        </ng-container>
+        <ng-container matColumnDef="median">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Median (local)</th>
+          <td mat-cell *matCellDef="let c" class="numeric">
+            <strong>{{ c.salaryLocal.median | money: c.currency }}</strong>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="range">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Middle 50% (local)</th>
+          <td mat-cell *matCellDef="let c" class="numeric">
+            {{ c.salaryLocal.p25 | money: c.currency }} – {{ c.salaryLocal.p75 | money: c.currency }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="medianUsd">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Median (USD)</th>
+          <td mat-cell *matCellDef="let c" class="numeric">{{ c.medianUsd | money: 'USD' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="payrollUsd">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Payroll (USD)</th>
+          <td mat-cell *matCellDef="let c" class="numeric">{{ c.totalPayrollUsd | money: 'USD' }}</td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="countryColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: countryColumns"></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- Breakdown by department / job title -->
+  <section class="panel" aria-labelledby="breakdown-title">
+    <header class="panel-header">
+      <h2 id="breakdown-title">Compare groups</h2>
+      <div class="controls">
+        <mat-button-toggle-group
+          [value]="dimension()"
+          (change)="dimension.set($event.value)"
+          aria-label="Group by"
+          hideSingleSelectionIndicator
+        >
+          <mat-button-toggle value="department">Department</mat-button-toggle>
+          <mat-button-toggle value="job-title">Job title</mat-button-toggle>
+        </mat-button-toggle-group>
+        <mat-form-field subscriptSizing="dynamic">
+          <mat-label>Country</mat-label>
+          <mat-select [value]="breakdownCountry()" (selectionChange)="breakdownCountry.set($event.value)">
+            <mat-option value="">All countries (USD)</mat-option>
+            @for (country of countryOptions(); track country.code) {
+              <mat-option [value]="country.code">{{ country.name }} ({{ country.currency }})</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field subscriptSizing="dynamic">
+          <mat-label>Filter</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input
+            matInput
+            [value]="groupFilter()"
+            (input)="groupFilter.set($any($event.target).value)"
+            placeholder="e.g. Software Engineer"
+            data-testid="group-filter"
+          />
+        </mat-form-field>
+      </div>
+    </header>
+    @if (breakdown().loading) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+    @if (errorOf(breakdown()); as message) {
+      <div class="error-banner" role="alert"><mat-icon>error</mat-icon>{{ message }}</div>
+    }
+    @let currency = dataOf(breakdown())?.currency ?? 'USD';
+    <p class="muted caption">All figures in {{ currency }} · sorted by median, highest first</p>
+    <div class="table-scroll">
+      <table mat-table [dataSource]="visibleGroups()" aria-labelledby="breakdown-title">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>{{ dimension() === 'department' ? 'Department' : 'Job title' }}</th>
+          <td mat-cell *matCellDef="let g">{{ g.name }}</td>
+        </ng-container>
+        <ng-container matColumnDef="headcount">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Headcount</th>
+          <td mat-cell *matCellDef="let g" class="numeric">{{ g.salary.count.toLocaleString() }}</td>
+        </ng-container>
+        <ng-container matColumnDef="p25">
+          <th mat-header-cell *matHeaderCellDef class="numeric">25th pct</th>
+          <td mat-cell *matCellDef="let g" class="numeric">{{ g.salary.p25 | money: currency }}</td>
+        </ng-container>
+        <ng-container matColumnDef="median">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Median</th>
+          <td mat-cell *matCellDef="let g" class="numeric"><strong>{{ g.salary.median | money: currency }}</strong></td>
+        </ng-container>
+        <ng-container matColumnDef="p75">
+          <th mat-header-cell *matHeaderCellDef class="numeric">75th pct</th>
+          <td mat-cell *matCellDef="let g" class="numeric">{{ g.salary.p75 | money: currency }}</td>
+        </ng-container>
+        <ng-container matColumnDef="min">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Min</th>
+          <td mat-cell *matCellDef="let g" class="numeric muted">{{ g.salary.min | money: currency }}</td>
+        </ng-container>
+        <ng-container matColumnDef="max">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Max</th>
+          <td mat-cell *matCellDef="let g" class="numeric muted">{{ g.salary.max | money: currency }}</td>
+        </ng-container>
+        <ng-container matColumnDef="mean">
+          <th mat-header-cell *matHeaderCellDef class="numeric">Mean</th>
+          <td mat-cell *matCellDef="let g" class="numeric muted">{{ g.salary.mean | money: currency }}</td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="groupColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: groupColumns"></tr>
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell empty" [attr.colspan]="groupColumns.length">
+            @if (!breakdown().loading) {
+              No groups match.
+            }
+          </td>
+        </tr>
+      </table>
+    </div>
+  </section>
+</div>

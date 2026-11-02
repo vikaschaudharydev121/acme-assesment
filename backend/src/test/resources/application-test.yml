@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    # A fresh throwaway database per test JVM/context: tests never touch developer data.
+    url: jdbc:sqlite:${java.io.tmpdir}/salary-test-${random.uuid}.db?journal_mode=WAL&busy_timeout=5000&foreign_keys=true
+
+app:
+  security:
+    jwt:
+      secret: test-secret-0123456789abcdef0123456789abcdef
+    cookie:
+      secure: true
+    login:
+      max-failed-attempts: 3
+      lockout-duration: 15m
+    bootstrap-users:
+      - username: manager
+        password: Manager-password-1
+        role: HR_MANAGER
+      - username: viewer
+        password: Viewer-password-1
+        role: HR_VIEWER
+  seed:
+    enabled: false
+
+logging:
+  level:
+    root: WARN

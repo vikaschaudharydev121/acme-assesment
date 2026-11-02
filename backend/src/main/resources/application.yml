@@ -1,0 +1,103 @@
+spring:
+  application:
+    name: salary-management
+  profiles:
+    default: dev
+  datasource:
+    # WAL + busy_timeout let readers and the single writer coexist; foreign_keys is off by default in SQLite.
+    url: jdbc:sqlite:${APP_DB_PATH:./data/salary.db}?journal_mode=WAL&busy_timeout=5000&foreign_keys=true
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      maximum-pool-size: 4
+  jpa:
+    open-in-view: false
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: true
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: never
+  servlet:
+    session:
+      tracking-modes: cookie
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+app:
+  security:
+    jwt:
+      secret: ${APP_JWT_SECRET:}
+      ttl: 8h
+    cookie:
+      secure: true
+    login:
+      max-failed-attempts: 5
+      lockout-duration: 15m
+    bootstrap-users:
+      - username: ${APP_MANAGER_USERNAME:hr.manager}
+        password: ${APP_MANAGER_PASSWORD:}
+        role: HR_MANAGER
+      - username: ${APP_VIEWER_USERNAME:hr.viewer}
+        password: ${APP_VIEWER_PASSWORD:}
+        role: HR_VIEWER
+  seed:
+    enabled: ${APP_SEED_ENABLED:false}
+    reset: ${APP_SEED_RESET:false}
+    employee-count: ${APP_SEED_COUNT:10000}
+    random-seed: 42
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+# Local development only: predictable credentials and plain-HTTP cookies.
+# The prod profile never falls back to these values.
+app:
+  security:
+    jwt:
+      secret: ${APP_JWT_SECRET:dev-only-secret-change-me-0123456789abcdef0123456789}
+    cookie:
+      secure: false
+    bootstrap-users:
+      - username: hr.manager
+        password: ${APP_MANAGER_PASSWORD:Manager@12345}
+        role: HR_MANAGER
+      - username: hr.viewer
+        password: ${APP_VIEWER_PASSWORD:Viewer@12345}
+        role: HR_VIEWER
+  seed:
+    enabled: ${APP_SEED_ENABLED:true}
+
+logging:
+  level:
+    com.acme.salary: DEBUG

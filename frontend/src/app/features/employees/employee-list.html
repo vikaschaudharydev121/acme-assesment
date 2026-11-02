@@ -1,0 +1,158 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Employees</h1>
+      <p>{{ page().totalElements.toLocaleString() }} {{ hasFilters() ? 'matching' : 'total' }}</p>
+    </div>
+    @if (auth.canManageEmployees()) {
+      <button mat-flat-button (click)="openCreate()" data-testid="add-employee">
+        <mat-icon>person_add</mat-icon>Add employee
+      </button>
+    }
+  </header>
+
+  <section class="filters" aria-label="Filters">
+    <mat-form-field class="search" subscriptSizing="dynamic">
+      <mat-label>Search</mat-label>
+      <mat-icon matPrefix>search</mat-icon>
+      <input
+        matInput
+        [formControl]="searchControl"
+        placeholder="Name, email or employee code"
+        maxlength="100"
+        data-testid="search"
+      />
+    </mat-form-field>
+    <mat-form-field subscriptSizing="dynamic">
+      <mat-label>Country</mat-label>
+      <mat-select [value]="query().country ?? ''" (selectionChange)="filterCountry($event.value)">
+        <mat-option value="">All countries</mat-option>
+        @for (country of countries(); track country.code) {
+          <mat-option [value]="country.code">{{ country.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field subscriptSizing="dynamic">
+      <mat-label>Department</mat-label>
+      <mat-select [value]="query().department ?? ''" (selectionChange)="filterDepartment($event.value)">
+        <mat-option value="">All departments</mat-option>
+        @for (department of departments(); track department) {
+          <mat-option [value]="department">{{ department }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    @if (hasFilters()) {
+      <button mat-button (click)="clearFilters()"><mat-icon>filter_alt_off</mat-icon>Clear</button>
+    }
+  </section>
+
+  @if (error(); as message) {
+    <div class="error-banner" role="alert"><mat-icon>error</mat-icon>{{ message }}</div>
+  }
+
+  <div class="table-card">
+    <mat-progress-bar [mode]="loading() ? 'indeterminate' : 'determinate'" [value]="0" class="progress" />
+    <div class="table-scroll">
+      <table
+        mat-table
+        [dataSource]="page().content"
+        matSort
+        matSortActive="name"
+        matSortDirection="asc"
+        (matSortChange)="onSort($event)"
+        aria-label="Employees"
+      >
+        <ng-container matColumnDef="employeeCode">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Code</th>
+          <td mat-cell *matCellDef="let e" class="code">{{ e.employeeCode }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+          <td mat-cell *matCellDef="let e">
+            <div class="name">{{ e.firstName }} {{ e.lastName }}</div>
+            <div class="email muted">{{ e.email }}</div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="jobTitle">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Job title</th>
+          <td mat-cell *matCellDef="let e">{{ e.jobTitle }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="department">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Department</th>
+          <td mat-cell *matCellDef="let e">{{ e.department }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="countryCode">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Country</th>
+          <td mat-cell *matCellDef="let e">{{ e.countryName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="annualSalary">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="numeric">Annual salary</th>
+          <td mat-cell *matCellDef="let e" class="numeric">{{ e.annualSalary | money: e.currency }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="usd">
+          <th mat-header-cell *matHeaderCellDef class="numeric" matTooltip="Converted at the reference rate">
+            ≈ USD
+          </th>
+          <td mat-cell *matCellDef="let e" class="numeric muted">{{ e.annualSalaryUsd | money: 'USD' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef><span class="cdk-visually-hidden">Actions</span></th>
+          <td mat-cell *matCellDef="let e" class="actions">
+            <button
+              mat-icon-button
+              (click)="openHistory(e)"
+              matTooltip="Salary history"
+              [attr.aria-label]="'Salary history for ' + e.firstName + ' ' + e.lastName"
+            >
+              <mat-icon>history</mat-icon>
+            </button>
+            @if (auth.canManageEmployees()) {
+              <button
+                mat-icon-button
+                (click)="openEdit(e)"
+                matTooltip="Edit"
+                [attr.aria-label]="'Edit ' + e.firstName + ' ' + e.lastName"
+              >
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                (click)="confirmDelete(e)"
+                matTooltip="Delete"
+                [attr.aria-label]="'Delete ' + e.firstName + ' ' + e.lastName"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            }
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="columns; sticky: true"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns"></tr>
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell empty" [attr.colspan]="columns.length">
+            @if (!loading()) {
+              No employees match these filters.
+            }
+          </td>
+        </tr>
+      </table>
+    </div>
+    <mat-paginator
+      [length]="page().totalElements"
+      [pageIndex]="query().page"
+      [pageSize]="query().size"
+      [pageSizeOptions]="[10, 20, 50, 100]"
+      (page)="onPage($event)"
+      showFirstLastButtons
+      aria-label="Select page of employees"
+    />
+  </div>
+</div>

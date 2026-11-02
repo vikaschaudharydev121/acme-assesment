@@ -1,0 +1,40 @@
+# Keep the Docker build context small and free of secrets: the Dockerfile only needs
+# frontend/ sources and backend/ sources + Maven wrapper.
+
+# Secrets & local config
+.env
+.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.jks
+
+# Build output & dependencies (rebuilt inside the image)
+**/node_modules
+**/dist
+**/.angular
+**/coverage
+**/target
+**/out-tsc
+backend/src/main/resources/static
+
+# Runtime data
+**/data
+**/*.db
+**/*.db-*
+
+# Not needed to build the image
+.git
+.github
+docs
+scripts
+*.md
+**/*.webm
+**/*.mp4
+**/*.log
+
+# IDE / OS
+**/.idea
+**/.vscode
+**/*.iml
+**/.DS_Store
